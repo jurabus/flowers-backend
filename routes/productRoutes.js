@@ -1,5 +1,5 @@
 import express from 'express';
-import { protect, requireAdmin } from '../middleware/auth.js';
+
 import {
   getProducts, getProduct, createProduct, updateProduct, deleteProduct
 } from '../controllers/productController.js';
