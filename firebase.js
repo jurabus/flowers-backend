@@ -1,18 +1,24 @@
 import admin from "firebase-admin";
 import { env } from "./config/env.js";
 
-// 🧠 Clean up the private key for Render (convert \n to real newlines)
-const cleanPrivateKey = env.firebase.privateKey.replace(/\\n/g, "\n");
-
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: env.firebase.projectId,
-      clientEmail: env.firebase.clientEmail,
-      privateKey: cleanPrivateKey,
-    }),
-    storageBucket: env.firebase.storageBucket,
-  });
+  // 🧠 Render converts newlines in env vars to literal "\n" — unescape them:
+  const cleanPrivateKey = env.firebase.privateKey.replace(/\\n/g, "\n");
+
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: env.firebase.projectId,
+        clientEmail: env.firebase.clientEmail,
+        privateKey: cleanPrivateKey,
+      }),
+      storageBucket: env.firebase.storageBucket,
+    });
+
+    console.log("✅ Firebase Admin initialized successfully");
+  } catch (err) {
+    console.error("❌ Firebase Admin initialization failed:", err);
+  }
 }
 
 const bucket = admin.storage().bucket();

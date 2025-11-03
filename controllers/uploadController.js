@@ -1,10 +1,11 @@
+import { PassThrough } from "stream";
 import bucket from "../firebase.js";
 import multer from "multer";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { PassThrough } from "stream";
+
 const storage = multer.memoryStorage();
-export const upload = multer({ storage });
+export const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB max
 
 /**
  * 🟢 POST /api/upload
@@ -22,7 +23,6 @@ export const uploadImage = async (req, res) => {
     const fileName = `uploads/${Date.now()}-${uuidv4()}${ext}`;
     const file = bucket.file(fileName);
 
-    // Convert buffer to readable stream
     const stream = new PassThrough();
     stream.end(req.file.buffer);
 
