@@ -1,5 +1,5 @@
 import express from 'express';
-import { upload, uploadImage, deleteByUrl } from '../controllers/uploadController.js';
+import { uploadImage, deleteByUrl } from '../controllers/uploadController.js';
 const router = express.Router();
 
 router.post('/', upload.single('image'), uploadImage);
