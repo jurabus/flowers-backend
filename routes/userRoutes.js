@@ -1,15 +1,21 @@
-import express from 'express';
-
-import { login, registerAdmin, getProfile, updateUser, changePassword, signup, sendOtp, verifyOtp} from '../controllers/userController.js';
+import express from "express";
+import {
+  signup,
+  login,
+  changePassword,
+  forgotPassword,
+  resetPassword,
+} from "../controllers/userController.js";
 
 const router = express.Router();
-router.post('/login', login);
-router.post("/send-otp", sendOtp);
-router.post("/verify-otp", verifyOtp);
+
+// Auth
 router.post("/signup", signup);
-router.post('/register-admin', registerAdmin); // one-time bootstrap
-router.get("/profile/:id", getProfile);
-router.put("/profile/:id", updateUser);
-router.post("/change-password", changePassword);
+router.post("/login", login);
+
+// Password
+router.put("/change-password", changePassword);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
 
 export default router;
