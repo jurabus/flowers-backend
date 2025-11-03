@@ -10,22 +10,22 @@ import {
 
 const router = express.Router();
 
-// ✅ Create new order
+// ✅ Create a new order
 router.post("/", createOrder);
 
-// ✅ Get orders by user ID
+// ✅ Get all orders (Admin)
+router.get("/all", getAllOrders);
+
+// ✅ Get orders by specific user
 router.get("/user/:userId", getOrdersByUser);
 
-// ✅ Get single order
+// ✅ Get single order by ID
 router.get("/:id", getOrderById);
 
 // ✅ Update order status (Admin)
 router.put("/:id/status", updateOrderStatus);
 
-// ✅ Update address (User)
+// ✅ Update delivery address (User)
 router.put("/:id/address", updateOrderAddress);
-
-// ✅ Get all orders (Admin)
-router.get("/all", getAllOrders);
 
 export default router;

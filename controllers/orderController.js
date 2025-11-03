@@ -2,7 +2,7 @@ import Order from "../models/Order.js";
 import Cart from "../models/Cart.js";
 
 /**
- * POST /api/orders
+ * 🟢 POST /api/orders
  * Create a new order
  */
 export const createOrder = async (req, res) => {
@@ -20,10 +20,7 @@ export const createOrder = async (req, res) => {
       imageUrl: String(it.imageUrl || ""),
     }));
 
-    const subtotal = normalized.reduce(
-      (sum, it) => sum + it.price * it.qty,
-      0
-    );
+    const subtotal = normalized.reduce((sum, it) => sum + it.price * it.qty, 0);
     const shipping = 0;
     const total = subtotal + shipping;
 
@@ -49,24 +46,37 @@ export const createOrder = async (req, res) => {
 };
 
 /**
- * GET /api/orders
- * Get all orders or filtered by userId
+ * 🟢 GET /api/orders/all
+ * Get all orders (Admin view)
  */
-export const getOrders = async (req, res) => {
+export const getAllOrders = async (req, res) => {
   try {
-    const { userId } = req.query;
-    const query = userId ? { userId } : {};
-    const orders = await Order.find(query).sort({ createdAt: -1 });
+    const orders = await Order.find().sort({ createdAt: -1 });
     return res.status(200).json({ items: orders });
   } catch (err) {
-    console.error("getOrders error:", err);
+    console.error("getAllOrders error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
 /**
- * GET /api/orders/:id
- * Get order by ID
+ * 🟢 GET /api/orders/user/:userId
+ * Get all orders for a specific user
+ */
+export const getOrdersByUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const orders = await Order.find({ userId }).sort({ createdAt: -1 });
+    return res.status(200).json({ items: orders });
+  } catch (err) {
+    console.error("getOrdersByUser error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+/**
+ * 🟢 GET /api/orders/:id
+ * Get a single order by ID
  */
 export const getOrderById = async (req, res) => {
   try {
@@ -80,17 +90,13 @@ export const getOrderById = async (req, res) => {
 };
 
 /**
- * PUT /api/orders/:id/status
- * Update order status
+ * 🟢 PUT /api/orders/:id/status
+ * Update order status (Admin)
  */
 export const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
+    const order = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true });
     if (!order) return res.status(404).json({ message: "Order not found" });
     return res.status(200).json({ success: true, order });
   } catch (err) {
@@ -100,17 +106,13 @@ export const updateOrderStatus = async (req, res) => {
 };
 
 /**
- * PUT /api/orders/:id/address
- * Update order delivery address
+ * 🟢 PUT /api/orders/:id/address
+ * Update delivery address (User)
  */
 export const updateOrderAddress = async (req, res) => {
   try {
     const { address } = req.body;
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { address },
-      { new: true }
-    );
+    const order = await Order.findByIdAndUpdate(req.params.id, { address }, { new: true });
     if (!order) return res.status(404).json({ message: "Order not found" });
     return res.status(200).json({ success: true, order });
   } catch (err) {

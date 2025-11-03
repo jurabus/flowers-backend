@@ -17,11 +17,17 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// ====== DB CONNECT ======
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.error("❌ MongoDB Connection Error:", err.message));
+// ====== DATABASE CONNECTION ======
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log("✅ MongoDB Connected Successfully");
+  } catch (err) {
+    console.error("❌ MongoDB Connection Error:", err.message);
+    process.exit(1);
+  }
+};
+connectDB();
 
 // ====== ROUTES ======
 app.get("/", (req, res) => res.send("ElvaStore API Running 🚀"));
@@ -31,5 +37,13 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/upload", uploadRoutes);
 
-// ====== SERVER ======
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+// ====== ERROR HANDLER (optional but recommended) ======
+app.use((err, req, res, next) => {
+  console.error("❌ Server Error:", err);
+  res.status(500).json({ message: "Internal Server Error", error: err.message });
+});
+
+// ====== START SERVER ======
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
