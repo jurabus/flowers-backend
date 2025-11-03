@@ -1,8 +1,11 @@
-import express from 'express';
-import { uploadImage, deleteByUrl } from '../controllers/uploadController.js';
+// routes/uploadRoutes.js
+import express from "express";
+import { uploadImage, deleteByUrl } from "../controllers/uploadController.js";
+
 const router = express.Router();
 
-router.post('/', upload.single('image'), uploadImage);
-router.delete('/', deleteByUrl);
+// ✅ We no longer need multer middleware here — handled inside uploadImage
+router.post("/", uploadImage);
+router.delete("/", deleteByUrl);
 
 export default router;
