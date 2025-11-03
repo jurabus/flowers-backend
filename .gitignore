@@ -1,0 +1,39 @@
+# === Node.js ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# === Environment & secrets ===
+.env
+.env.local
+.env.*.local
+
+# === Build output ===
+dist/
+build/
+coverage/
+
+# === Logs ===
+logs/
+*.log
+debug.log
+*.pid
+*.seed
+*.pid.lock
+
+# === OS / IDE junk ===
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# === Uploads (if temporary) ===
+uploads/
+public/uploads/
+
+# === Render specific ===
+.render/

@@ -1,24 +1,13 @@
-import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+import mongoose from "mongoose";
 
-const userSchema = new mongoose.Schema({
-  firstName: { type: String, default: '' },
-  lastName:  { type: String, default: '' },
-  phone:     { type: String, default: '' },
-  email:     { type: String, required: true, unique: true, index: true },
-  password:  { type: String, required: true },
-  role:      { type: String, enum: ['user','admin'], default: 'user' }
-}, { timestamps: true });
+const userSchema = new mongoose.Schema(
+  {
+    name: { type: String, default: "New User" },
+    phone: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    verified: { type: Boolean, default: false }, // for future SMS OTP logic
+  },
+  { timestamps: true }
+);
 
-userSchema.pre('save', async function(next){
-  if (!this.isModified('password')) return next();
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
-});
-
-userSchema.methods.matchPassword = function(pw) {
-  return bcrypt.compare(pw, this.password);
-};
-
-export const User = mongoose.model('User', userSchema);
+export default mongoose.model("User", userSchema);

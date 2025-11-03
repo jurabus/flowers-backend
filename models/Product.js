@@ -1,16 +1,18 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const productSchema = new mongoose.Schema({
-  name:     { type: String, required: true },     // ✅ required per your spec
-  color:    { type: String, default: '' },        // e.g. "red" or hex
-  size:     { type: String, default: '' },        // e.g. "S","M","L","XL"
-  price:    { type: Number, required: true },     // ✅ required
-  category: { type: String, required: true },     // ✅ required (simple string for now)
-  imageUrl: { type: String, default: '' },        // stored public URL from Firebase
-  featured: { type: Boolean, default: false },
-  active:   { type: Boolean, default: true }
-}, { timestamps: true });
+const productSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    color: { type: String, default: "" },
+    size: { type: String, default: "" },
+    price: { type: Number, required: true },
+    category: { type: String, required: true },
+    imageUrl: { type: String, default: "" },
+    featured: { type: Boolean, default: false },
+    active: { type: Boolean, default: true },
+  },
+  { timestamps: true }
+);
 
-const Product = mongoose.model('Product', productSchema);
-
-export default Product; // ✅ Add this line
+const Product = mongoose.model("Product", productSchema);
+export default Product;
