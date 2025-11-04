@@ -1,8 +1,7 @@
 // controllers/productController.js
-import Product from "../models/Product.js";
-import Category from "../models/Category.js";
+import Product, { COLOR_ENUM, CATEGORY_ENUM } from "../models/Product.js";
 
-// --- helpers ---
+/ --- helpers ---
 const coerceImages = (body) => {
   const imgs = Array.isArray(body.images) ? body.images.filter(Boolean) : [];
   if (!imgs.length && body.imageUrl) imgs.push(String(body.imageUrl));
@@ -40,8 +39,35 @@ const summarizeAvailability = (p) => {
     availableColors: Array.from(colors, ([color, qty]) => ({ color, qty })),
   };
 };
+// --- CRUD ---
+// GET /api/products?search=&category=&featured=true
+export const getProducts = async (req, res) => {
+  try {
+    const { search, category, featured } = req.query;
+    const q = {};
+    if (category && CATEGORY_ENUM.includes(category)) q.category = category;
+    if (featured === "true") q.featured = true;
+    if (search) q.name = { $regex: search, $options: "i" };
 
-// ======================= CRUD =======================
+    const items = await Product.find(q).sort({ createdAt: -1 });
+    return res.json({ items: items.map(summarizeAvailability) });
+  } catch (e) {
+    console.error("getProducts error:", e);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// GET /api/products/:id
+export const getProduct = async (req, res) => {
+  try {
+    const p = await Product.findById(req.params.id);
+    if (!p) return res.status(404).json({ message: "Product not found" });
+    return res.json(summarizeAvailability(p));
+  } catch (e) {
+    console.error("getProduct error:", e);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
 
 // POST /api/products
 export const createProduct = async (req, res) => {
@@ -94,6 +120,54 @@ export const updateProduct = async (req, res) => {
     return res.json(summarizeAvailability(p));
   } catch (e) {
     console.error("updateProduct error:", e);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// DELETE /api/products/:id
+export const deleteProduct = async (req, res) => {
+  try {
+    const p = await Product.findById(req.params.id);
+    if (!p) return res.status(404).json({ message: "Product not found" });
+
+    // Best-effort image cleanup via internal API (works when uploadRoutes is mounted)
+    const images = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
+    try {
+      if (images.length) {
+        // Node 18+ has global fetch
+        const base = `${req.protocol}://${req.get("host")}`;
+        await Promise.all(
+          images.map((url) =>
+            fetch(`${base}/api/upload`, {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url }),
+            }).catch(() => null)
+          )
+        );
+      }
+    } catch (_) {
+      // ignore cleanup errors, we still delete product
+    }
+
+    await p.deleteOne();
+    return res.json({ message: "Deleted", deletedImages: images.length });
+  } catch (e) {
+    console.error("deleteProduct error:", e);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// --- ENUMS ENDPOINT ---
+// GET /api/products/enums
+export const getProductEnums = async (req, res) => {
+  try {
+    return res.json({
+      categories: CATEGORY_ENUM,
+      colors: COLOR_ENUM,
+    });
+  } catch (e) {
+    console.error("getProductEnums error:", e);
     return res.status(500).json({ message: "Server error" });
   }
 };
