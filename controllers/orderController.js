@@ -1,195 +1,150 @@
+// controllers/orderController.js
 import Order from "../models/Order.js";
-import Cart from "../models/Cart.js";
 import Product from "../models/Product.js";
-/**
- * 🟢 POST /api/orders
- * Create a new order + atomically deduct variant quantities (best-effort)
- */
+import Cart from "../models/Cart.js";
+
+export const ORDER_STATUSES = ["pending","confirmed","shipped","delivered","cancelled"];
+
+// Create order (kept compatible with your existing payload)
 export const createOrder = async (req, res) => {
   try {
-    const { userId, phone, address, paymentMethod = "COD", items = [] } = req.body;
-    if (!userId || !phone || !address || !items.length)
-      return res.status(400).json({ message: "Missing required fields" });
-
-    // Normalize order items; carry productId when provided (recommended)
-    const normalized = items.map((it) => ({
-      productId: it.productId ? String(it.productId) : undefined,
-      name:   String(it.name || ""),
-      price:  Number(it.price || 0),
-      qty:    Math.max(1, Number(it.qty || 1)),
-      size:   String(it.size || ""),
-      color:  String(it.color || ""),
-      imageUrl: String(it.imageUrl || ""),
-    }));
-
-    // 1) Validate stock availability for every variant
-    const outOfStock = [];
-    const productCache = new Map(); // id -> product
-
-    for (const it of normalized) {
-      let product = null;
-
-      if (it.productId) {
-        if (!productCache.has(it.productId)) {
-          productCache.set(it.productId, await Product.findById(it.productId));
-        }
-        product = productCache.get(it.productId);
-      } else {
-        // legacy fallback by name
-        product = await Product.findOne({ name: it.name });
-      }
-
-      if (!product) {
-        outOfStock.push({ item: it, reason: "Product not found" });
-        continue;
-      }
-
-      const variant = (product.variants || []).find(
-        (v) => v.size === it.size && v.color === it.color
-      );
-
-      if (!variant || variant.qty < it.qty) {
-        outOfStock.push({
-          item: it,
-          reason: !variant ? "Variant not found" : `Only ${variant.qty} left`,
-        });
-      }
+    const { userId, items = [], address = "", phone = "", paymentMethod = "COD" } = req.body;
+    if (!userId || !Array.isArray(items) || !items.length) {
+      return res.status(400).json({ message: "userId and items required" });
     }
 
-    if (outOfStock.length) {
-      return res.status(400).json({
-        message: "Some items are out of stock",
-        details: outOfStock,
-      });
-    }
+    let subtotal = 0;
+    const decrements = [];
 
-    // 2) Deduct quantities (validated first → low risk of conflict)
-    for (const it of normalized) {
-      const prodId = it.productId
-        ? it.productId
-        : (await Product.findOne({ name: it.name }))?._id;
+    for (const it of items) {
+      const pid = it.productId;
+      const qty = Number(it.qty || 1);
+      const size = String(it.size || "");
+      const color = String(it.color || "");
 
-      if (!prodId) {
-        return res.status(400).json({ message: `Product not found for ${it.name}` });
+      if (!pid || !size || !color || qty <= 0) {
+        return res.status(400).json({ message: "Invalid item payload" });
       }
 
-      const result = await Product.updateOne(
-        {
-          _id: prodId,
-          "variants.color": it.color,
-          "variants.size": it.size,
-          "variants.qty": { $gte: it.qty }, // guard against negative stock
-        },
-        { $inc: { "variants.$.qty": -it.qty } }
-      );
+      const p = await Product.findById(pid);
+      if (!p) return res.status(404).json({ message: "Product not found: " + pid });
 
-      if (!result.modifiedCount) {
-        // Extremely rare race: someone bought last unit between validation and update
-        return res.status(409).json({
-          message: "Stock just changed. Please review your cart.",
-          item: it,
-        });
+      const vIdx = (p.variants || []).findIndex(v => v.size === size && v.color === color);
+      if (vIdx < 0) return res.status(400).json({ message: `Variant not found for ${p.name} (${size}/${color})` });
+
+      if (p.variants[vIdx].qty < qty) {
+        return res.status(400).json({ message: `Insufficient stock for ${p.name} (${size}/${color})` });
       }
+      decrements.push({ p, vIdx, qty });
+      subtotal += Number(it.price || 0) * qty;
     }
 
-    // 3) Create order
-    const subtotal = normalized.reduce((sum, it) => sum + it.price * it.qty, 0);
-    const shipping = 0;
+    // Apply stock decrements
+    for (const d of decrements) {
+      d.p.variants[d.vIdx].qty -= d.qty;
+      if (d.p.variants[d.vIdx].qty < 0) d.p.variants[d.vIdx].qty = 0;
+      await d.p.save();
+    }
+
+    const shipping = Number(req.body.shipping ?? 0);
     const total = subtotal + shipping;
 
     const order = await Order.create({
       userId,
-      phone,
-      address,
-      paymentMethod,
-      items: normalized,
+      items,
       subtotal,
       shipping,
       total,
+      address,
+      phone,
+      paymentMethod,
+      status: "pending",
     });
 
-    // 4) Clear user cart
+    // Clear cart
     await Cart.findOneAndDelete({ userId });
 
-    return res.status(201).json({ success: true, order });
-  } catch (err) {
-    console.error("createOrder error:", err);
+    return res.status(201).json(order);
+  } catch (e) {
+    console.error("createOrder error:", e);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-/**
- * 🟢 GET /api/orders/all
- * Get all orders (Admin view)
- */
-export const getAllOrders = async (req, res) => {
+// List orders (optionally by userId and/or status)
+export const listOrders = async (req, res) => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 });
-    return res.status(200).json({ items: orders });
-  } catch (err) {
-    console.error("getAllOrders error:", err);
+    const { userId, status } = req.query;
+    const q = {};
+    if (userId) q.userId = userId;
+    if (status && ORDER_STATUSES.includes(String(status))) q.status = String(status);
+
+    const items = await Order.find(q).sort({ createdAt: -1 });
+    return res.json({ items });
+  } catch (e) {
+    console.error("listOrders error:", e);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-/**
- * 🟢 GET /api/orders/user/:userId
- * Get all orders for a specific user
- */
-export const getOrdersByUser = async (req, res) => {
+export const getOrder = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const orders = await Order.find({ userId }).sort({ createdAt: -1 });
-    return res.status(200).json({ items: orders });
-  } catch (err) {
-    console.error("getOrdersByUser error:", err);
+    const o = await Order.findById(req.params.id);
+    if (!o) return res.status(404).json({ message: "Not found" });
+    return res.json(o);
+  } catch (e) {
+    console.error("getOrder error:", e);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-/**
- * 🟢 GET /api/orders/:id
- * Get a single order by ID
- */
-export const getOrderById = async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.id);
-    if (!order) return res.status(404).json({ message: "Order not found" });
-    return res.status(200).json(order);
-  } catch (err) {
-    console.error("getOrderById error:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-/**
- * 🟢 PUT /api/orders/:id/status
- * Update order status (Admin)
- */
+// Admin: update order status
 export const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const order = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true });
-    if (!order) return res.status(404).json({ message: "Order not found" });
-    return res.status(200).json({ success: true, order });
-  } catch (err) {
-    console.error("updateOrderStatus error:", err);
+    if (!ORDER_STATUSES.includes(String(status))) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+    const o = await Order.findById(req.params.id);
+    if (!o) return res.status(404).json({ message: "Not found" });
+
+    o.status = String(status);
+    await o.save();
+    return res.json(o);
+  } catch (e) {
+    console.error("updateOrderStatus error:", e);
     return res.status(500).json({ message: "Server error" });
   }
 };
 
-/**
- * 🟢 PUT /api/orders/:id/address
- * Update delivery address (User)
- */
-export const updateOrderAddress = async (req, res) => {
+// User: cancel pending order (restock variants)
+export const cancelOrder = async (req, res) => {
   try {
-    const { address } = req.body;
-    const order = await Order.findByIdAndUpdate(req.params.id, { address }, { new: true });
-    if (!order) return res.status(404).json({ message: "Order not found" });
-    return res.status(200).json({ success: true, order });
-  } catch (err) {
-    console.error("updateOrderAddress error:", err);
+    const o = await Order.findById(req.params.id);
+    if (!o) return res.status(404).json({ message: "Not found" });
+
+    if (o.status !== "pending") {
+      return res.status(400).json({ message: "Only pending orders can be cancelled" });
+    }
+
+    // Restock
+    for (const it of o.items) {
+      try {
+        const p = await Product.findById(it.productId);
+        if (!p) continue;
+        const idx = (p.variants || []).findIndex(v => v.size == it.size && v.color == it.color);
+        if (idx >= 0) {
+          p.variants[idx].qty += Number(it.qty || 0);
+          await p.save();
+        }
+      } catch (_) {}
+    }
+
+    o.status = "cancelled";
+    await o.save();
+    return res.json(o);
+  } catch (e) {
+    console.error("cancelOrder error:", e);
     return res.status(500).json({ message: "Server error" });
   }
 };

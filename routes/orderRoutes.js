@@ -1,31 +1,19 @@
+// routes/orderRoutes.js
 import express from "express";
 import {
-  createOrder,
-  getOrderById,
-  getOrdersByUser,
-  getAllOrders,
-  updateOrderStatus,
-  updateOrderAddress,
+  createOrder, listOrders, getOrder, updateOrderStatus, cancelOrder
 } from "../controllers/orderController.js";
 
 const router = express.Router();
 
-// ✅ Create a new order
+router.get("/", listOrders);              // ?userId=&status=
+router.get("/:id", getOrder);
 router.post("/", createOrder);
 
-// ✅ Get all orders (Admin)
-router.get("/all", getAllOrders);
-
-// ✅ Get orders by specific user
-router.get("/user/:userId", getOrdersByUser);
-
-// ✅ Get single order by ID
-router.get("/:id", getOrderById);
-
-// ✅ Update order status (Admin)
+// Admin change status
 router.put("/:id/status", updateOrderStatus);
 
-// ✅ Update delivery address (User)
-router.put("/:id/address", updateOrderAddress);
+// User cancel (only pending)
+router.post("/:id/cancel", cancelOrder);
 
 export default router;

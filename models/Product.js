@@ -1,10 +1,14 @@
 import mongoose from "mongoose";
 
+// Keep these aligned with your frontend dropdowns
+export const CATEGORY_ENUM = ["Jackets", "Tops", "Bottoms", "Jeans", "Dresses"];
+export const COLOR_ENUM    = ["Red", "Black", "Orange", "Beige", "White"];
+
 const variantSchema = new mongoose.Schema(
   {
-    color: { type: String, required: true, trim: true }, // e.g. "Red"
-    size:  { type: String, required: true, trim: true }, // e.g. "M"
-    qty:   { type: Number, required: true, min: 0 },     // stock for this color+size
+    color: { type: String, required: true, enum: COLOR_ENUM, trim: true },
+    size:  { type: String, required: true, trim: true }, // e.g. "XS","S","M","L","XL","XXL","OneSize"
+    qty:   { type: Number, required: true, min: 0 },
   },
   { _id: false }
 );
@@ -13,17 +17,17 @@ const productSchema = new mongoose.Schema(
   {
     name:     { type: String, required: true, index: true },
     price:    { type: Number, required: true, min: 0 },
-    category: { type: String, required: true, index: true },
+    category: { type: String, required: true, enum: CATEGORY_ENUM, index: true },
     images:   [String],
     featured: { type: Boolean, default: false },
 
-    // 🔑 Authoritative inventory at the variant level
+    // Inventory at variant level
     variants: { type: [variantSchema], default: [] },
   },
   { timestamps: true }
 );
 
-// Virtual total quantity
+// Virtual: total stock
 productSchema.virtual("totalQty").get(function () {
   return (this.variants || []).reduce((sum, v) => sum + Number(v.qty || 0), 0);
 });
