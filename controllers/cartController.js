@@ -16,11 +16,7 @@ export const getCart = async (req, res) => {
   }
 };
 
-//**
- * POST /api/cart
- * Add or update a product in the cart
- * body: { userId, item: { productId?, name, price, size, color, qty, imageUrl } }
- */
+
 export const addToCart = async (req, res) => {
   try {
     const { userId, item } = req.body;
