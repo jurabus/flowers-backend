@@ -2,19 +2,24 @@ import express from "express";
 import {
   signup,
   login,
+  logout,
+  refreshToken,
   changePassword,
   forgotPassword,
   resetPassword,
 } from "../controllers/userController.js";
+import { verifyToken } from "../middlewares/auth.js";
 
 const router = express.Router();
 
-// Auth
+// 🧾 AUTH
 router.post("/signup", signup);
 router.post("/login", login);
+router.post("/logout", logout);
+router.get("/refresh", refreshToken); // 🔁 auto-renew access token
 
-// Password
-router.put("/change-password", changePassword);
+// 🔒 PASSWORD MANAGEMENT
+router.put("/change-password", verifyToken, changePassword);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 

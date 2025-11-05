@@ -2,6 +2,8 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
+import cookieParser from "cookie-parser";
+
 import userRoutes from "./routes/userRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
@@ -14,8 +16,24 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ====== MIDDLEWARES ======
-app.use(cors());
+app.set("trust proxy", 1); // ✅ Required for cookies on HTTPS (Render/Netlify)
+app.use(cookieParser());
 app.use(express.json());
+
+// ✅ CORS setup for Flutter Web (with cookies & tokens)
+app.use(
+  cors({
+    origin: [
+      "https://elvastore0.web.app",     // main production site
+      "https://elvastore0.firebaseapp.com", // optional fallback if deployed there too
+      "http://localhost:5000",          // optional for local dev
+      "http://localhost:5173",          // common Vite dev server
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true, // ✅ allow cookies and authorization headers
+  })
+);
 
 // ====== DATABASE CONNECTION ======
 const connectDB = async () => {
@@ -31,6 +49,7 @@ connectDB();
 
 // ====== ROUTES ======
 app.get("/", (req, res) => res.send("ElvaStore API Running 🚀"));
+
 app.use("/api/users", userRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
@@ -38,10 +57,12 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/categories", categoryRoutes);
 
-// ====== ERROR HANDLER (optional but recommended) ======
+// ====== ERROR HANDLER ======
 app.use((err, req, res, next) => {
   console.error("❌ Server Error:", err);
-  res.status(500).json({ message: "Internal Server Error", error: err.message });
+  res
+    .status(500)
+    .json({ message: "Internal Server Error", error: err.message });
 });
 
 // ====== START SERVER ======
