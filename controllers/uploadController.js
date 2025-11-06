@@ -1,143 +1,135 @@
 import bucket from "../firebase.js";
-import Busboy from "busboy";
+import multer from "multer";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 
-const setCors = (res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
-};
-export const corsPreflight = (req, res) => { setCors(res); res.sendStatus(200); };
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
-// ---------- SINGLE STREAM (legacy compatible) ----------
-export const uploadImageStream = (req, res) => {
-  setCors(res);
-  const busboy = Busboy({ headers: req.headers });
-  let filePromise;
+/**
+ * 🟢 Single file upload
+ */
+export const uploadImage = (req, res) => {
+  upload.single("image")(req, res, async (err) => {
+    if (err)
+      return res.status(400).json({ success: false, message: err.message });
 
-  busboy.on("file", (_, file, info) => {
-    const ext = path.extname(info.filename || ".jpg") || ".jpg";
-    const fileName = `uploads/${uuidv4()}-${Date.now()}${ext}`;
-    const blob = bucket.file(fileName);
-    filePromise = new Promise((resolve, reject) => {
-      file.pipe(
-        blob.createWriteStream({
-          metadata: {
-            contentType: info.mimeType || "image/jpeg",
-            cacheControl: "public,max-age=31536000",
-          },
-          resumable: false,
-        })
-      )
-      .on("error", reject)
-      .on("finish", async () => {
-        const [url] = await blob.getSignedUrl({ action: "read", expires: "03-01-2035" });
-        resolve(url);
-      });
-    });
-  });
+    if (!req.file)
+      return res.status(400).json({ success: false, message: "No file uploaded" });
 
-  busboy.on("finish", async () => {
     try {
-      const url = await filePromise;
-      res.json({ success: true, urls: [url] });
-    } catch (e) {
-      res.status(500).json({ success: false, message: e.message });
+      const file = req.file;
+      const ext = path.extname(file.originalname) || ".jpg";
+      const fileName = `uploads/${uuidv4()}-${Date.now()}${ext}`;
+      const blob = bucket.file(fileName);
+
+      // Correct content type
+      const contentType =
+        file.mimetype ||
+        (ext.match(/png/i)
+          ? "image/png"
+          : ext.match(/jpe?g/i)
+          ? "image/jpeg"
+          : "application/octet-stream");
+
+      const blobStream = blob.createWriteStream({
+        metadata: { contentType, cacheControl: "public, max-age=31536000" },
+      });
+
+      blobStream.on("error", (error) => {
+        console.error("Upload error:", error);
+        res
+          .status(500)
+          .json({ success: false, message: "Upload failed: " + error.message });
+      });
+
+      blobStream.on("finish", async () => {
+        const [signedUrl] = await blob.getSignedUrl({
+          action: "read",
+          expires: "03-01-2035",
+        });
+        res.status(200).json({ success: true, url: signedUrl });
+      });
+
+      blobStream.end(file.buffer);
+    } catch (error) {
+      console.error("Upload failed:", error);
+      res.status(500).json({ success: false, message: error.message });
     }
   });
-  req.pipe(busboy);
 };
 
-// ---------- MULTI STREAM ----------
-export const uploadMultipleStream = (req, res) => {
-  setCors(res);
-  const busboy = Busboy({ headers: req.headers });
-  const promises = [];
+/**
+ * 🟣 Multiple files upload
+ */
+export const uploadMultiple = (req, res) => {
+  upload.array("images")(req, res, async (err) => {
+    if (err)
+      return res.status(400).json({ success: false, message: err.message });
 
-  busboy.on("file", (_, file, info) => {
-    const ext = path.extname(info.filename || ".jpg") || ".jpg";
-    const fileName = `uploads/${uuidv4()}-${Date.now()}${ext}`;
-    const blob = bucket.file(fileName);
-    const p = new Promise((resolve, reject) => {
-      file.pipe(
-        blob.createWriteStream({
-          metadata: {
-            contentType: info.mimeType || "image/jpeg",
-            cacheControl: "public,max-age=31536000",
-          },
-          resumable: false,
-        })
-      )
-      .on("error", reject)
-      .on("finish", async () => {
-        const [url] = await blob.getSignedUrl({ action: "read", expires: "03-01-2035" });
-        resolve(url);
-      });
-    });
-    promises.push(p);
-  });
+    if (!req.files || !req.files.length)
+      return res.status(400).json({ success: false, message: "No files uploaded" });
 
-  busboy.on("finish", async () => {
     try {
-      const urls = await Promise.all(promises);
-      res.json({ success: true, urls });
-    } catch (e) {
-      res.status(500).json({ success: false, message: e.message });
+      const uploadedUrls = await Promise.all(
+        req.files.map(async (file) => {
+          const ext = path.extname(file.originalname) || ".jpg";
+          const fileName = `uploads/${uuidv4()}-${Date.now()}${ext}`;
+          const blob = bucket.file(fileName);
+
+          const contentType =
+            file.mimetype ||
+            (ext.match(/png/i)
+              ? "image/png"
+              : ext.match(/jpe?g/i)
+              ? "image/jpeg"
+              : "application/octet-stream");
+
+          await new Promise((resolve, reject) => {
+            const stream = blob.createWriteStream({
+              metadata: { contentType, cacheControl: "public, max-age=31536000" },
+            });
+            stream.on("error", reject);
+            stream.on("finish", resolve);
+            stream.end(file.buffer);
+          });
+
+          const [signedUrl] = await blob.getSignedUrl({
+            action: "read",
+            expires: "03-01-2035",
+          });
+          return signedUrl;
+        })
+      );
+
+      res.status(200).json({ success: true, urls: uploadedUrls });
+    } catch (error) {
+      console.error("Multi upload failed:", error);
+      res.status(500).json({ success: false, message: error.message });
     }
   });
-  req.pipe(busboy);
 };
 
-// ---------- DIRECT UPLOAD (prepare + complete) ----------
-export const getUploadUrl = async (req, res) => {
-  setCors(res);
-  try {
-    const { contentType = "image/jpeg", ext = ".jpg" } = req.body || {};
-    const fileName = `uploads/${uuidv4()}-${Date.now()}${ext}`;
-    const [uploadUrl] = await bucket.file(fileName).getSignedUrl({
-      action: "write",
-      expires: Date.now() + 10 * 60 * 1000,
-      contentType,
-    });
-    res.json({ success: true, uploadUrl, fileName, contentType });
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
-  }
-};
-
-export const getReadUrl = async (req, res) => {
-  setCors(res);
-  try {
-    const { fileName } = req.body;
-    if (!fileName)
-      return res.status(400).json({ success: false, message: "fileName required" });
-    const file = bucket.file(fileName);
-    const [exists] = await file.exists();
-    if (!exists)
-      return res.status(404).json({ success: false, message: "File not found" });
-    const [url] = await file.getSignedUrl({ action: "read", expires: "03-01-2035" });
-    res.json({ success: true, url });
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
-  }
-};
-
-// ---------- DELETE ----------
+/**
+ * 🟠 DELETE uploaded file by signed URL
+ */
 export const deleteByUrl = async (req, res) => {
-  setCors(res);
   try {
     const { url } = req.body;
     if (!url)
-      return res.status(400).json({ success: false, message: "Missing url" });
+      return res.status(400).json({ success: false, message: "Missing 'url'" });
+
     const decoded = decodeURIComponent(url);
-    const match = decoded.match(/\/o\/([^?]+)\?/);
-    const filePath = match?.[1];
-    if (!filePath)
-      return res.status(400).json({ success: false, message: "Invalid URL" });
-    await bucket.file(filePath).delete({ ignoreNotFound: true });
+    const match = decoded.match(/\/o\/(.+)\?/);
+    if (match && match[1]) {
+      const filePath = match[1];
+      await bucket.file(filePath).delete({ ignoreNotFound: true });
+      console.log(`🗑️ Deleted file: ${filePath}`);
+    }
+
     res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message });
+  } catch (error) {
+    console.error("deleteByUrl error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

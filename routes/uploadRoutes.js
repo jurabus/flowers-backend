@@ -1,20 +1,21 @@
 import express from "express";
 import {
-  uploadImageStream,
-  uploadMultipleStream,
-  getUploadUrl,
-  getReadUrl,
+  uploadImage,
+  uploadMultiple,
   deleteByUrl,
-  corsPreflight,
 } from "../controllers/uploadController.js";
 
 const router = express.Router();
 
-router.post("/", uploadImageStream);        // single
-router.post("/multi", uploadMultipleStream); // multi
-router.post("/prepare", getUploadUrl);
-router.post("/complete", getReadUrl);
+router.post("/", uploadImage);
+router.post("/multi", uploadMultiple);
 router.delete("/", deleteByUrl);
-router.options(["/", "/multi", "/prepare", "/complete"], corsPreflight);
+
+router.options("/", (_, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.sendStatus(200);
+});
 
 export default router;
