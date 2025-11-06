@@ -2,12 +2,16 @@
 import mongoose from "mongoose";
 
 const addressSchema = new mongoose.Schema({
-  label: { type: String, default: "Home" }, // optional user label
+  label: { type: String, default: "Home" },
   fullName: { type: String, required: true },
   phone: { type: String, required: true },
   city: { type: String, required: true },
+  area: { type: String, required: true },
   street: { type: String, required: true },
-  building: { type: String },
+  buildingNo: { type: String, required: true },
+  floor: { type: String },
+  apartmentNo: { type: String },
+  landMark: { type: String },
   notes: { type: String },
   isDefault: { type: Boolean, default: false },
 });
@@ -18,7 +22,7 @@ const userSchema = new mongoose.Schema(
     phone: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     verified: { type: Boolean, default: false },
-    addresses: [addressSchema], // 🆕 list of addresses
+    addresses: [addressSchema],
   },
   { timestamps: true }
 );
