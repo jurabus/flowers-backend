@@ -1,15 +1,5 @@
 import mongoose from "mongoose";
-
-// ✅ Categories (expand anytime)
-export const CATEGORY_ENUM = [
-  "Jackets",
-  "Tops",
-  "Bottoms",
-  "Jeans",
-  "Dresses",
-  "Shoes",
-  "Accessories",
-];
+import Category from "./Category.js"; // ✅ import Category for dynamic validation
 
 // ✅ Full color palette (matches Flutter predefinedColors)
 export const COLOR_ENUM = [
@@ -61,7 +51,7 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: [true, "Product name is required"],
       trim: true,
-      index: true, // ✅ keep index for searching, no duplicate
+      index: true, // ✅ keep index for searching
       minlength: 2,
       maxlength: 120,
     },
@@ -73,9 +63,17 @@ const productSchema = new mongoose.Schema(
     category: {
       type: String,
       required: [true, "Category is required"],
-      enum: CATEGORY_ENUM,
       trim: true,
       index: true,
+      // ✅ dynamic validator to ensure category exists
+      validate: {
+        validator: async function (v) {
+          if (!v) return false;
+          const exists = await Category.exists({ name: v });
+          return !!exists;
+        },
+        message: (props) => `Category '${props.value}' does not exist.`,
+      },
     },
     images: {
       type: [String],

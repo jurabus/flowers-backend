@@ -1,4 +1,4 @@
-import Product, { COLOR_ENUM, CATEGORY_ENUM } from "../models/Product.js";
+import Product, { COLOR_ENUM } from "../models/Product.js";
 
 // =============== HELPERS ===============
 const coerceImages = (body) => {
@@ -34,7 +34,8 @@ export const getProducts = async (req, res) => {
   try {
     const { search, category, featured } = req.query;
     const q = {};
-    if (category && CATEGORY_ENUM.includes(category)) q.category = category;
+
+    if (category) q.category = category;
     if (featured === "true") q.featured = true;
     if (search) q.name = { $regex: search, $options: "i" };
 
@@ -110,7 +111,7 @@ export const createProduct = async (req, res) => {
     console.error("createProduct error:", e);
     res.status(500).json({
       success: false,
-      message: "Server error while creating product",
+      message: e.message || "Server error while creating product",
     });
   }
 };
@@ -149,7 +150,7 @@ export const updateProduct = async (req, res) => {
     console.error("updateProduct error:", e);
     res.status(500).json({
       success: false,
-      message: "Server error while updating product",
+      message: e.message || "Server error while updating product",
     });
   }
 };
@@ -174,17 +175,17 @@ export const deleteProduct = async (req, res) => {
     console.error("deleteProduct error:", e);
     res.status(500).json({
       success: false,
-      message: "Server error while deleting product",
+      message: e.message || "Server error while deleting product",
     });
   }
 };
 
 // =============== EXTRA ENDPOINTS ===============
 
-// ENUMS (categories/colors)
+// ENUMS (colors only now)
 export const getProductEnums = async (req, res) => {
   try {
-    res.json({ success: true, categories: CATEGORY_ENUM, colors: COLOR_ENUM });
+    res.json({ success: true, colors: COLOR_ENUM });
   } catch (e) {
     console.error("getProductEnums error:", e);
     res.status(500).json({
@@ -203,7 +204,7 @@ export const getNewArrivals = async (req, res) => {
     const q = { createdAt: { $gte: since } };
 
     const { category, search } = req.query;
-    if (category && CATEGORY_ENUM.includes(category)) q.category = category;
+    if (category) q.category = category;
     if (search) q.name = { $regex: search, $options: "i" };
 
     const items = await Product.find(q)
@@ -236,7 +237,7 @@ export const getProductsByBudget = async (req, res) => {
     if (sort === "price_desc") sortOpt = { price: -1 };
 
     const q = { price: { $lte: max } };
-    if (category && CATEGORY_ENUM.includes(category)) q.category = category;
+    if (category) q.category = category;
     if (search) q.name = { $regex: search, $options: "i" };
 
     const items = await Product.find(q).sort(sortOpt);
@@ -245,7 +246,7 @@ export const getProductsByBudget = async (req, res) => {
     console.error("getProductsByBudget error:", e);
     res.status(500).json({
       success: false,
-      message: "Server error while filtering products by budget",
+      message: e.message || "Server error while filtering products by budget",
     });
   }
 };
