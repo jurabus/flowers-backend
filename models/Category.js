@@ -5,7 +5,7 @@ const categorySchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, "Category name is required"],
-      unique: true,
+      unique: true, // ✅ this alone creates the index
       trim: true,
       minlength: 2,
       maxlength: 60,
@@ -23,7 +23,7 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-categorySchema.index({ name: 1 }, { unique: true });
+// ⚙️ Removed redundant `categorySchema.index({ name: 1 }, { unique: true });`
 
 // cleaner JSON for Flutter
 categorySchema.methods.sanitize = function () {

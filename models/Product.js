@@ -61,7 +61,7 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: [true, "Product name is required"],
       trim: true,
-      index: true,
+      index: true, // ✅ keep index for searching, no duplicate
       minlength: 2,
       maxlength: 120,
     },
@@ -81,9 +81,7 @@ const productSchema = new mongoose.Schema(
       type: [String],
       validate: {
         validator: (arr) =>
-          arr.every((url) =>
-            /^https?:\/\/[^\s]+$/i.test(url)
-          ),
+          arr.every((url) => /^https?:\/\/[^\s]+$/i.test(url)),
         message: "One or more image URLs are invalid",
       },
       default: [],
@@ -107,10 +105,7 @@ productSchema.index({ createdAt: -1 });
 
 // ========================= VIRTUALS =========================
 productSchema.virtual("totalQty").get(function () {
-  return (this.variants || []).reduce(
-    (sum, v) => sum + Number(v.qty || 0),
-    0
-  );
+  return (this.variants || []).reduce((sum, v) => sum + Number(v.qty || 0), 0);
 });
 
 // ========================= CLEAN SERIALIZATION =========================
