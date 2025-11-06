@@ -28,14 +28,9 @@ const adjustStock = async (productId, size, color, delta) => {
 
 
 
-/**
- * POST /api/orders/from-cart
- * body: { userId, address?, paymentMethod? }
- * Creates an order from the user's cart — only with in-stock items.
- */
 export const createOrderFromCart = async (req, res) => {
   try {
-    const { userId, address, paymentMethod } = req.body;
+    const { userId, address, phone, paymentMethod } = req.body;
     if (!userId) return res.status(400).json({ message: "userId required" });
 
     const cart = await Cart.findOne({ userId });
@@ -47,12 +42,17 @@ export const createOrderFromCart = async (req, res) => {
 
     for (const i of cart.items) {
       const product = i.productId ? await Product.findById(i.productId) : null;
-      if (!product) { soldOut.push(i); continue; }
+      if (!product) {
+        soldOut.push(i);
+        continue;
+      }
 
       const variant = product.variants?.find(
         (v) => v.size === i.size && v.color === i.color
       );
-      const availableQty = variant ? variant.qty : product.variants?.reduce((a, v) => a + v.qty, 0) ?? 0;
+      const availableQty = variant
+        ? variant.qty
+        : product.variants?.reduce((a, v) => a + v.qty, 0) ?? 0;
 
       if (!variant || availableQty <= 0) {
         soldOut.push(i);
@@ -75,6 +75,9 @@ export const createOrderFromCart = async (req, res) => {
       0
     );
 
+    const shipping = 0;
+    const total = subtotal + shipping;
+
     const order = await Order.create({
       userId,
       items: purchasable.map((p) => ({
@@ -86,13 +89,16 @@ export const createOrderFromCart = async (req, res) => {
         color: p.color,
         imageUrl: p.imageUrl,
       })),
-      totalAmount: subtotal,
+      subtotal,
+      shipping,
+      total,
       address: address || "Not provided",
-      paymentMethod: paymentMethod || "cash_on_delivery",
+      phone: phone || "",
+      paymentMethod: paymentMethod || "COD",
       status: "pending",
     });
 
-    // keep only sold-out items in cart (purchased ones removed)
+    // keep only sold-out items in cart
     cart.items = cart.items.filter(
       (i) =>
         soldOut.findIndex(
@@ -112,6 +118,7 @@ export const createOrderFromCart = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
 
 /* ----------------------------------------------------------
    🛒 Create order
