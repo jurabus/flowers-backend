@@ -1,7 +1,6 @@
-// controllers/budgetFriendlyController.js
 import BudgetFriendlyCard from "../models/BudgetFriendlyCard.js";
-import Product, { CATEGORY_ENUM } from "../models/Product.js";
-import { /* reuse helpers if needed */ } from "./productController.js"; // not required
+import Product from "../models/Product.js"; // removed CATEGORY_ENUM import
+import Category from "../models/Category.js"; // ✅ added for dynamic category validation
 
 // LIST active cards (for Home)
 export const getBudgetCards = async (req, res) => {
@@ -32,7 +31,9 @@ export const createBudgetCard = async (req, res) => {
   try {
     const { maxPrice, imageUrl, title, isActive, order } = req.body;
     if (!imageUrl || !Number.isFinite(Number(maxPrice))) {
-      return res.status(400).json({ message: "imageUrl and numeric maxPrice are required" });
+      return res
+        .status(400)
+        .json({ message: "imageUrl and numeric maxPrice are required" });
     }
     const card = await BudgetFriendlyCard.create({
       imageUrl: String(imageUrl),
@@ -56,10 +57,12 @@ export const updateBudgetCard = async (req, res) => {
 
     const { maxPrice, imageUrl, title, isActive, order } = req.body;
     if (imageUrl != null) card.imageUrl = String(imageUrl);
-    if (maxPrice != null && Number.isFinite(Number(maxPrice))) card.maxPrice = Number(maxPrice);
+    if (maxPrice != null && Number.isFinite(Number(maxPrice)))
+      card.maxPrice = Number(maxPrice);
     if (title != null) card.title = String(title);
     if (isActive != null) card.isActive = !!isActive;
-    if (order != null && Number.isFinite(Number(order))) card.order = Number(order);
+    if (order != null && Number.isFinite(Number(order)))
+      card.order = Number(order);
 
     await card.save();
     return res.json(card);
@@ -99,12 +102,23 @@ export const getBudgetCardProducts = async (req, res) => {
     else if (sortParam === "price_asc") sort = { price: 1 };
 
     const q = { price: { $lte: card.maxPrice } };
-    if (category && CATEGORY_ENUM.includes(category)) q.category = category;
+
+    // ✅ dynamic category validation
+    if (category) {
+      const exists = await Category.exists({ name: category });
+      if (exists) q.category = category;
+    }
+
     if (search) q.name = { $regex: String(search), $options: "i" };
 
     const items = await Product.find(q).sort(sort);
     return res.json({
-      card: { id: card._id, title: card.title, maxPrice: card.maxPrice, imageUrl: card.imageUrl },
+      card: {
+        id: card._id,
+        title: card.title,
+        maxPrice: card.maxPrice,
+        imageUrl: card.imageUrl,
+      },
       items,
     });
   } catch (e) {
