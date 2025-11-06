@@ -1,3 +1,4 @@
+// middleware/auth.js
 import jwt from "jsonwebtoken";
 
 export const verifyToken = (req, res, next) => {
@@ -11,7 +12,9 @@ export const verifyToken = (req, res, next) => {
     if (err) {
       return res.status(403).json({ message: "Invalid or expired token" });
     }
-    req.user = decoded;
+
+    // ✅ Ensure id is always defined
+    req.user = { id: decoded.id || decoded._id, phone: decoded.phone };
     next();
   });
 };
