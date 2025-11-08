@@ -4,7 +4,6 @@ import dotenv from "dotenv";
 import cors from "cors";
 import compression from "compression";
 import cookieParser from "cookie-parser";
-
 import budgetFriendlyRoutes from "./routes/budgetFriendlyRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
@@ -12,6 +11,11 @@ import orderRoutes from "./routes/orderRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
+import bannerRoutes from "./routes/bannerRoutes.js";
+
+
+
+
 
 dotenv.config();
 const app = express();
@@ -66,7 +70,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/categories", categoryRoutes);
-
+app.use("/api/banners", bannerRoutes);
 // ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
   console.error("❌ Server Error:", err);

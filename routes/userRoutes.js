@@ -12,6 +12,7 @@ import {
   setDefaultAddress,
   deleteAddress,
   updateName,
+  updateAddress,
 } from "../controllers/userController.js";
 
 import { verifyToken } from "../middleware/auth.js";
@@ -34,6 +35,7 @@ router.get("/addresses", verifyToken, getAddresses);
 router.post("/addresses", verifyToken, addAddress);
 router.put("/addresses/default/:addressId", verifyToken, setDefaultAddress);
 router.delete("/addresses/:addressId", verifyToken, deleteAddress);
+router.put("/addresses/:addressId", verifyToken, updateAddress); // 🆕
 
 // ✏️ PROFILE
 router.put("/update-name", verifyToken, updateName);

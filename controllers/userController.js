@@ -192,6 +192,37 @@ export const deleteAddress = async (req, res) => {
   }
 };
 
+// 🟢 Update existing address
+export const updateAddress = async (req, res) => {
+  try {
+    const { addressId } = req.params;
+    const updates = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const addr = user.addresses.id(addressId);
+    if (!addr) return res.status(404).json({ message: "Address not found" });
+
+    // ✅ If the update marks as default, clear others
+    if (updates.isDefault === true) {
+      user.addresses.forEach((a) => (a.isDefault = false));
+    }
+
+    Object.assign(addr, updates); // merge fields
+    await user.save();
+
+    res.json({
+  message: "Address updated",
+  address: addr, // ✅ return only the updated one
+});
+
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error updating address", error: err.message });
+  }
+};
+
 // 🟢 Update user name
 export const updateName = async (req, res) => {
   try {

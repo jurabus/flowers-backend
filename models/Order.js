@@ -1,3 +1,4 @@
+// models/Order.js
 import mongoose from "mongoose";
 
 const orderItemSchema = new mongoose.Schema(
@@ -16,14 +17,18 @@ const orderItemSchema = new mongoose.Schema(
 const orderSchema = new mongoose.Schema(
   {
     userId: { type: String, required: true, index: true },
-    items:  { type: [orderItemSchema], default: [] },
+    items: { type: [orderItemSchema], default: [] },
     subtotal: { type: Number, default: 0 },
     shipping: { type: Number, default: 0 },
-    total:    { type: Number, default: 0 },
-    address:  { type: String, default: "" },
-    phone:    { type: String, default: "" },
+    total: { type: Number, default: 0 },
+
+    // 🧩 Full structured address
+    address: { type: String, default: "" },
+    fullAddress: { type: mongoose.Schema.Types.Mixed, default: null }, // 🆕
+
+    phone: { type: String, default: "" },
     paymentMethod: { type: String, default: "COD" },
-    status: { type: String, default: "pending", index: true }, // pending, confirmed, shipped, delivered, cancelled
+    status: { type: String, default: "pending", index: true },
   },
   { timestamps: true }
 );

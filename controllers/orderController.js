@@ -26,8 +26,63 @@ const adjustStock = async (productId, size, color, delta) => {
   }
 };
 
+// 🧩 when admin changes status
+export const updateOrderStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!ORDER_STATUSES.includes(status))
+      return res.status(400).json({ message: "Invalid status" });
 
+    const o = await Order.findById(req.params.id);
+    if (!o) return res.status(404).json({ message: "Order not found" });
 
+    const prevStatus = o.status;
+    if (status === prevStatus) return res.json(o);
+
+    if (status === "cancelled" && prevStatus !== "cancelled") {
+      for (const it of o.items) await adjustStock(it.productId, it.size, it.color, it.qty);
+    }
+    if (prevStatus === "cancelled" && status !== "cancelled") {
+      for (const it of o.items) await adjustStock(it.productId, it.size, it.color, -it.qty);
+    }
+
+    o.status = status;
+    o.statusChangedBy = "Admin";
+    o.statusHistory.push({ status, changedBy: "Admin" });
+    await o.save();
+
+    return res.json(o);
+  } catch (e) {
+    console.error("updateOrderStatus error:", e);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// 🧩 when user cancels own order
+export const cancelOrder = async (req, res) => {
+  try {
+    const o = await Order.findById(req.params.id);
+    if (!o) return res.status(404).json({ message: "Not found" });
+    if (o.status !== "pending")
+      return res.status(400).json({ message: "Only pending orders can be cancelled" });
+
+    for (const it of o.items)
+      await adjustStock(it.productId, it.size, it.color, Number(it.qty || 0));
+
+    o.status = "cancelled";
+    o.statusChangedBy = "User";
+    o.statusHistory.push({ status: "cancelled", changedBy: "User" });
+    await o.save();
+
+    return res.json(o);
+  } catch (e) {
+    console.error("cancelOrder error:", e);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+/* ----------------------------------------------------------
+   🛒 Create Order From Cart
+---------------------------------------------------------- */
 export const createOrderFromCart = async (req, res) => {
   try {
     const { userId, address, phone, paymentMethod } = req.body;
@@ -78,6 +133,22 @@ export const createOrderFromCart = async (req, res) => {
     const shipping = 0;
     const total = subtotal + shipping;
 
+    // 🧩 Detect structured JSON address
+    let fullAddressObj = null;
+    let addressString = address || "Not provided";
+
+    try {
+      if (typeof address === "string" && address.trim().startsWith("{")) {
+        fullAddressObj = JSON.parse(address);
+        addressString = `${fullAddressObj.street || ""}, ${fullAddressObj.city || ""}`;
+      } else if (typeof address === "object" && address !== null) {
+        fullAddressObj = address;
+        addressString = `${address.street || ""}, ${address.city || ""}`;
+      }
+    } catch (e) {
+      console.warn("Invalid address JSON:", e);
+    }
+
     const order = await Order.create({
       userId,
       items: purchasable.map((p) => ({
@@ -92,7 +163,8 @@ export const createOrderFromCart = async (req, res) => {
       subtotal,
       shipping,
       total,
-      address: address || "Not provided",
+      address: addressString,
+      fullAddress: fullAddressObj, // 🆕
       phone: phone || "",
       paymentMethod: paymentMethod || "COD",
       status: "pending",
@@ -119,11 +191,8 @@ export const createOrderFromCart = async (req, res) => {
   }
 };
 
-
 /* ----------------------------------------------------------
-   🛒 Create order
-   - Decreases variant stock
-   - Clears user cart
+   🛒 Create order (direct)
 ---------------------------------------------------------- */
 export const createOrder = async (req, res) => {
   try {
@@ -163,13 +232,30 @@ export const createOrder = async (req, res) => {
     const shipping = Number(req.body.shipping ?? 0);
     const total = subtotal + shipping;
 
+    // 🧩 Detect structured JSON address
+    let fullAddressObj = null;
+    let addressString = address || "Not provided";
+
+    try {
+      if (typeof address === "string" && address.trim().startsWith("{")) {
+        fullAddressObj = JSON.parse(address);
+        addressString = `${fullAddressObj.street || ""}, ${fullAddressObj.city || ""}`;
+      } else if (typeof address === "object" && address !== null) {
+        fullAddressObj = address;
+        addressString = `${address.street || ""}, ${address.city || ""}`;
+      }
+    } catch (e) {
+      console.warn("Invalid address JSON:", e);
+    }
+
     const order = await Order.create({
       userId,
       items,
       subtotal,
       shipping,
       total,
-      address,
+      address: addressString,
+      fullAddress: fullAddressObj, // 🆕
       phone,
       paymentMethod,
       status: "pending",
@@ -217,60 +303,3 @@ export const getOrder = async (req, res) => {
   }
 };
 
-/* ----------------------------------------------------------
-   🧮 Admin: Update Order Status (smart stock sync)
----------------------------------------------------------- */
-export const updateOrderStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-    if (!ORDER_STATUSES.includes(status))
-      return res.status(400).json({ message: "Invalid status" });
-
-    const o = await Order.findById(req.params.id);
-    if (!o) return res.status(404).json({ message: "Order not found" });
-
-    const prevStatus = o.status;
-    if (status === prevStatus)
-      return res.json(o); // no change
-
-    // 🟠 Transition from active → cancelled → restock
-    if (status === "cancelled" && prevStatus !== "cancelled") {
-      for (const it of o.items) await adjustStock(it.productId, it.size, it.color, it.qty);
-    }
-
-    // 🟢 Transition from cancelled → active → reduce again
-    if (prevStatus === "cancelled" && status !== "cancelled") {
-      for (const it of o.items) await adjustStock(it.productId, it.size, it.color, -it.qty);
-    }
-
-    o.status = status;
-    await o.save();
-    return res.json(o);
-  } catch (e) {
-    console.error("updateOrderStatus error:", e);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
-
-/* ----------------------------------------------------------
-   ❌ User Cancel Own Order (if pending)
----------------------------------------------------------- */
-export const cancelOrder = async (req, res) => {
-  try {
-    const o = await Order.findById(req.params.id);
-    if (!o) return res.status(404).json({ message: "Not found" });
-    if (o.status !== "pending")
-      return res.status(400).json({ message: "Only pending orders can be cancelled" });
-
-    // Restock each variant
-    for (const it of o.items)
-      await adjustStock(it.productId, it.size, it.color, Number(it.qty || 0));
-
-    o.status = "cancelled";
-    await o.save();
-    return res.json(o);
-  } catch (e) {
-    console.error("cancelOrder error:", e);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
