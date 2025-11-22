@@ -31,6 +31,8 @@ app.use(compression()); // ✅ reduces payload size (esp. for image lists)
 app.use(
   cors({
     origin: [
+      "https://elvastore.online",
+      "https://www.elvastore.online",
       "https://elvastore0.web.app",
       "https://elvastore0.firebaseapp.com",
       /http:\/\/localhost(:\d+)?$/,
@@ -41,6 +43,7 @@ app.use(
     credentials: true,
   })
 );
+
 
 // For Busboy & preflight
 app.options("*", cors());
@@ -62,6 +65,21 @@ connectDB();
 
 // ================= ROUTES =================
 app.get("/", (req, res) => res.send("ElvaStore API Running 🚀"));
+app.use(
+  cors({
+    origin: [
+      "https://elvastore.online",
+      "https://www.elvastore.online",
+      "https://elvastore0.web.app",
+      "https://elvastore0.firebaseapp.com",
+      /http:\/\/localhost(:\d+)?$/,
+      /http:\/\/127\.0\.0\.1(:\d+)?$/,
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
 
 app.use("/api/budget-friendly", budgetFriendlyRoutes);
 app.use("/api/users", userRoutes);
