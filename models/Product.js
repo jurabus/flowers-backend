@@ -25,6 +25,8 @@ export const COLOR_ENUM = [
   "Offwhite",
   "Olive",
   "Brick Color",
+  "Nude",
+  "Dark Nude",
 
 ];
 
