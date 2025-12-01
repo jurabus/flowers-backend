@@ -27,6 +27,8 @@ export const COLOR_ENUM = [
   "Brick Color",
   "Nude",
   "Dark Nude",
+  "Teal",
+  "Dark Beige",
 
 ];
 
