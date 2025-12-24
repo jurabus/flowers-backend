@@ -28,21 +28,32 @@ app.use(express.json({ limit: "25mb" })); // allow JSON payloads for presigned u
 app.use(compression()); // ✅ reduces payload size (esp. for image lists)
 
 // ✅ CORS setup for Flutter Web (supports both dev & prod)
+// ================= CORS (Flutter Web + Local Dev) =================
+const allowedOrigins = [
+  "https://flowers-c3633.web.app",
+  "https://flowers.firebaseapp.com",
+  "https://flowers.yourdomain.com", // optional custom domain later
+  /http:\/\/localhost(:\d+)?$/,
+  /http:\/\/127\.0\.0\.1(:\d+)?$/,
+];
+
 app.use(
   cors({
-    origin: [
-      "https://elvastore.online",
-      "https://www.elvastore.online",
-      "https://elvastore0.web.app",
-      "https://elvastore0.firebaseapp.com",
-      /http:\/\/localhost(:\d+)?$/,
-      /http:\/\/127\.0\.0\.1(:\d+)?$/,
-    ],
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // allow server-to-server / curl
+      const allowed = allowedOrigins.some((o) =>
+        o instanceof RegExp ? o.test(origin) : o === origin
+      );
+      callback(allowed ? null : new Error("Not allowed by CORS"), allowed);
+    },
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
   })
 );
+
+app.options("*", cors());
+
 
 
 // For Busboy & preflight
@@ -64,22 +75,8 @@ const connectDB = async () => {
 connectDB();
 
 // ================= ROUTES =================
-app.get("/", (req, res) => res.send("ElvaStore API Running 🚀"));
-app.use(
-  cors({
-    origin: [
-      "https://elvastore.online",
-      "https://www.elvastore.online",
-      "https://elvastore0.web.app",
-      "https://elvastore0.firebaseapp.com",
-      /http:\/\/localhost(:\d+)?$/,
-      /http:\/\/127\.0\.0\.1(:\d+)?$/,
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
-);
+app.get("/", (req, res) => res.send("Flowers API Running 🚀"));
+
 
 app.use("/api/budget-friendly", budgetFriendlyRoutes);
 app.use("/api/users", userRoutes);
