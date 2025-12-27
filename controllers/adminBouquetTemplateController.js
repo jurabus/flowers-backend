@@ -15,3 +15,8 @@ export const adminUpdateTemplate = async (req, res) =>
       { new: true }
     ),
   });
+
+export const adminDeleteTemplate = async (req, res) => {
+  await BouquetTemplate.findByIdAndDelete(req.params.id);
+  res.json({ ok: true });
+};
