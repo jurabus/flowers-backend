@@ -16,6 +16,9 @@ import customBouquetRoutes from "./routes/customBouquetRoutes.js";
 import giftOptionsRoutes from "./routes/giftOptionsRoutes.js";
 import flowerRoutes from "./routes/flowerRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import publicRoutes from "./routes/publicRoutes.js";
+
+
 
 dotenv.config();
 const app = express();
@@ -80,7 +83,7 @@ app.use("/api/custom-bouquets", customBouquetRoutes);
 app.use("/api/gift-options", giftOptionsRoutes);
 app.use("/api/flowers", flowerRoutes);
 app.use("/api/admin", adminRoutes);
-
+app.use("/api", publicRoutes);
 app.use("/api/budget-friendly", budgetFriendlyRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/products", productRoutes);
